@@ -20,52 +20,97 @@ struct frame{
 	unsigned size;
 };
 
-struct StoreType{
+struct FrameGo{
 	frame *pfrm;
 	unsigned sz;
 };
 
-deque<StoreType> mQue, mQue2;
-bool sendWinFull = false;
-int counter = 0;
+//FrameGo *swin, *end, *l, *r;
+deque<FrameGo> swin, waiting;
+unsigned winsize = 1, counter, items;
+//const unsigned MAX = 128;
+
+/* Number of frames in the sliding window */
+// unsigned items(){
+// 	return r>=l ? r-l : MAX - (l - r);
+// }
+
+// FrameGo *winopen(){
+// 	FrameGo *ret = r;
+// 	r++;
+// 	if (r == end) r -= MAX;
+// 	return ret;
+// }
+
+// bool winclose(){
+// 	l++;
+// 	if (l < end) return true;
+// 	else if (l == end) { l -= MAX; return true; }
+// 	else return false;
+// }
 
 /*
 * 停等协议测试函数
 */
 int stud_slide_window_stop_and_wait(char *pBuffer, int bufferSize, UINT8 messageType) {
     unsigned ack, num;
-	StoreType s;
+	FrameGo F;
+	
     switch (messageType) {
     case MSG_TYPE_TIMEOUT:	// send the prepared seq
-		num = ntohl(*(unsigned*)pBuffer)
-        s = mQue.front();
-		if (num == s.pfrm->head.seq)
-			SendFRAMEPacket((char*)(s.pfrm), s.sz);
-        break;
-    case MST_TYPE_SEND:		// Prepare a new frame
-		s.pfrm = new frame;
-		*s.pfrm = *(frame*)pBuffer;
-		s.sz = bufferSize;
-		mQue.push_back(s);
-		if (!sendWinFull){	// Send all data in buffer
-			s = m.mQue.front();
-			SendFRAMEPacket((char*)(s.pfrm), s.sz);
-			sendWinFull = true;
+		num = ntohl(*(unsigned*)pBuffer);
+		for (unsigned i = 0; i < swin.size(); i++){	// Iterate to find the frame to resend
+			if (swin[i].pfrm->head.seq == num){
+				SendFRAMEPacket((unsigned char*)(swin[i].pfrm), swin[i].sz);
+				break;
+			}
 		}
+        break;
+
+    case MST_TYPE_SEND:		// Prepare a new frame
+		F.pfrm = malloc(sizeof(frame));
+		*F.pfrm = *(frame*)pBuffer;
+		F.sz = bufferSize;
+		waiting.push_back(F);
+
+		if (swin.size() >= winsize) 		// Is there the window full?
+			break;		
+		// FrameGo *p = winopen();			// Open a window slot
+		// p->pfrm = *((frame*)pBuffer);	// Set the slot as pBuffer
+		// p->sz = bufferSize;
+
+		F = waiting.front(); 
+		waiting.pop_front();
+		SendFRAMEPacket((unsigned char*)(F.pfrm), F.sz);
+		swin.push_back(F);
 		break;
+
 	case MSG_TYPE_RECEIVE:	// Receive ack
 		ack = ntohl((frame*)pBuffer)->head.ack);
-		if (mQue.size()!=0){
-			s = mQue.front();
-			if (ntohl(s.pfrm->head.seq) == ack){	// ack seq number OK
-				mQue.pop_front();
-				s = mQue.front();
-				SendFRAMEPacket((char*)s.pfrm, s.sz);	// send frames again???
+
+		if (ack == swin.front().pfrm->head.seq){
+			swin.pop_front();
+			if (waiting.size() != 0) {
+				F = waiting.front();
+				waiting.pop_front();
+				SendFRAMEPacket((unsigned char*)(F.pfrm), F.sz);
+				swin.push_back(F);
 			}
-		} else {
-			sendWinFull = false;	// data buffer is empty
 		}
+		// Just ignore incorrect ack numbers...
+
+		// if (mQue.size()!=0){
+		// 	s = mQue.front();
+		// 	if (ntohl(s.pfrm->head.seq) == ack){	// ack seq number OK
+		// 		mQue.pop_front();
+		// 		s = mQue.front();
+		// 		SendFRAMEPacket((char*)s.pfrm, s.sz);	// send frames again???
+		// 	}
+		// } else {
+		// 	sendWinFull = false;	// data buffer is empty
+		// }
 		break;
+
     default:
         break;
     }
