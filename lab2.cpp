@@ -78,7 +78,7 @@ int stud_ip_recv(char *pBuffer, unsigned short length) {
 
 	unsigned short sum = 0, temp = 0;
 	for (int i = 0; i < ipv4->IHL * 2; i++) {
-		temp = (((unsigned char*)pBuffer)[i * 2] << 8) + ((unsigned char*)pBuffer)[i * 2 + 1];
+		temp = (((unsigned char*)pBuffer)[2*i] << 8) + ((unsigned char*)pBuffer)[2*i + 1];
 		if (sum + temp > 0xffff)
 			sum += (temp + 1);
 		else
