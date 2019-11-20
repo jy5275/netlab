@@ -5,11 +5,8 @@
 #include "sysInclude.h"
 
 extern void ip_DiscardPkt(char* pBuffer, int type);
-
 extern void ip_SendtoLower(char* pBuffer, int length);
-
 extern void ip_SendtoUp(char *pBuffer, int length);
-
 extern unsigned int getIpv4Address();
 
 // implemented by students
@@ -21,9 +18,6 @@ struct Ipv4 {
 	unsigned padding1 : 2;
 	unsigned totalLen : 16;
 	unsigned id : 16;
-	//unsigned padding2 : 1;
-	//unsigned DF : 1;
-	//unsigned MF : 1;
 	unsigned FragOff : 16;
 	unsigned timeToLive : 8;
 	unsigned protocol : 8;
@@ -42,13 +36,10 @@ struct Ipv4 {
 		srcAddr = htonl(_src);
 		dstAddr = htonl(_dst);
 
-		unsigned short sum = 0, temp = 0;
+		unsigned sum = 0, temp = 0;
 		for (int i = 0; i < 10; i++) {
-			temp = (((unsigned char*)this)[i * 2] << 8) + ((unsigned char*)this)[i * 2 + 1];
-			if (sum + temp > 0xffff)
-				sum += (temp + 1);
-			else
-				sum += temp;
+			temp = ntohs(((unsigned short*)this)[i]);
+			sum = (sum + temp) % 0xffff;
 		}
 		headerChecksum = htons(0xffff - sum);
 	}
@@ -76,19 +67,15 @@ int stud_ip_recv(char *pBuffer, unsigned short length) {
 	}
 	int checksum = ntohs(ipv4->headerChecksum);
 
-	unsigned short sum = 0, temp = 0;
+	unsigned sum = 0, temp = 0;
 	for (int i = 0; i < ipv4->IHL * 2; i++) {
-		temp = (((unsigned char*)pBuffer)[2*i] << 8) + ((unsigned char*)pBuffer)[2*i + 1];
-		if (sum + temp > 0xffff)
-			sum += (temp + 1);
-		else
-			sum += temp;
+		temp = ntohs(((unsigned short*)pBuffer)[i]);
+		sum = (sum + temp) % 0xffff;
 	}
-	if (sum != 0xffff) {
+	if (sum != 0) {
 		ip_DiscardPkt(pBuffer, STUD_IP_TEST_CHECKSUM_ERROR);
 		return 1;
 	}
-
 	ip_SendtoUp(pBuffer, length);
 	return 0;
 }
