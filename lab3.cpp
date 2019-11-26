@@ -26,12 +26,13 @@ struct Ipv4 {
 	unsigned srcAddr : 32;
 	unsigned dstAddr : 32;
 };
-
+typedef struct stud_route_msg stud_route_msg;
+/*
 typedef struct stud_route_msg {
 	unsigned int dest;
 	unsigned int masklen;
 	unsigned int nexthop;
-};
+};*/
 vector<stud_route_msg> table;
 
 void stud_Route_Init() {
@@ -43,7 +44,7 @@ void stud_Route_Init() {
 void stud_route_add(stud_route_msg *proute) {
 	stud_route_msg newmsg;
 	newmsg.masklen = ntohl(proute->masklen);
-	int mask = ~((1 << (32 - p->masklen)) - 1);
+	int mask = ~((1 << (32 - proute->masklen)) - 1);
 	newmsg.dest = ntohl(proute->dest) & mask;
 	newmsg.nexthop = ntohl(proute->nexthop);
 	table.push_back(newmsg);
